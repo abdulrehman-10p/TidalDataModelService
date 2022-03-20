@@ -1,0 +1,2 @@
+id,name,description,type,modified,created,spec_version
+x-mitre-matrix--eafc1b4c-5e56-4965-bd4e-66a6a89c88cc,Enterprise ATT&CK,"Below are the tactics and technique representing the MITRE ATT&CK Matrix for Enterprise. The Matrix contains information for the following platforms: Windows, macOS, Linux, AWS, GCP, Azure, Azure AD, Office 365, SaaS.",x-mitre-matrix,2021-11-03T20:11:51.915Z,2018-10-17T00:14:20.652Z,2.1

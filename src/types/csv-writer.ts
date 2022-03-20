@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { writeDataToCSVFile } from '../utils/csv-writer';
 import {
+  InJSONDataType,
   InMatrix,
   InMiterMatrix,
   InMiterTactics,
@@ -18,14 +19,16 @@ export async function getDataFromJSON(): Promise<void> {
     const miteData: InMatrix = JSON.parse(rawdata.toString()); // convert buffer to string
     await filterData(miteData);
   } catch (err: any) {
-    console.log(err.toString());
+    console.log(err.stack);
   }
 }
 
 const filePath = {
-  matrix: path.join('CSVS', 'matrix.csv'),
-  Tectic: path.join('CSVS', 'tactics.csv'),
-  technique: path.join('CSVS', 'technique.csv'),
+  matrix: path.join('CSVS', 'Matrix.csv'),
+  Tectic: path.join('CSVS', 'Tactic.csv'),
+  techniques: path.join('CSVS', 'Technique.csv'),
+  TecToTactic: path.join('CSVS', 'TechniqueToTactic.csv'),
+  TecToTactic_missing_records: path.join('CSVS', 'TecToTactic_missing_records.csv'),
 };
 const filterJSONObjects = {} as any;
 const filterData = async (jsonData: InMatrix) => {
@@ -37,15 +40,21 @@ const filterData = async (jsonData: InMatrix) => {
   });
 
   // NOTE genrate Tectic
-  await writeTacticToCSV({
+  const teatics = await writeTacticToCSV({
     tacticIds,
     fileName: filePath.Tectic,
     jsonData: objects as InMiterTactics[],
   });
   // NOTE genrate Technique
-  await writeTechniqueToCSV({
-    fileName: filePath.technique,
+  const techniques = await writeTechniqueToCSV({
+    fileName: filePath.techniques,
     jsonData: objects as InMiterTechnique[],
+  });
+  // NOTE genrate TechniqueToTactic
+  const tecToTactic = await writeTechniqueToTacticCSV({
+    fileName: filePath.TecToTactic,
+    teatics,
+    techniques,
   });
 };
 
@@ -55,6 +64,9 @@ export enum MITER_TYPE {
   TECHNIQUE = 'attack-pattern',
 }
 
+const findDataObject = (jsonData: InJSONDataType[], condition: string) =>
+  jsonData.filter((item) => item.type === condition);
+
 async function writeMatrixToCSV({
   fileName,
   jsonData,
@@ -63,13 +75,13 @@ async function writeMatrixToCSV({
   jsonData: InMiterMatrix[];
 }): Promise<string[]> {
   try {
-    const matrixJSON: InMiterMatrix[] = jsonData.filter((item) => item.type === MITER_TYPE.MATRIX);
+    const matrixJSON = findDataObject(jsonData, MITER_TYPE.MATRIX) as InMiterMatrix[];
     const objectArray = matrixJSON.map(mapMatrixTableColumn);
     await writeDataToCSVFile({ fileName, objectArray });
     console.log('\n ****************Successfull created:::', fileName);
     return matrixJSON[0].tactic_refs;
   } catch (err: any) {
-    console.log(`writeMatrixToCSV: ${err.toString()}`);
+    console.log(`writeMatrixToCSV: ${err.stack}`);
     throw err;
   }
 }
@@ -88,72 +100,111 @@ async function writeTacticToCSV({
     const tableColumn = jsonArr.map(mapTacticTableColumn) as any;
     await writeDataToCSVFile({ fileName, objectArray: tableColumn });
     console.log('\n ****************Successfull created:::', fileName);
+    return jsonArr;
   } catch (err: any) {
-    console.log(`writeMatrixToCSV: ${err.toString()}`);
+    console.log(`writeMatrixToCSV: ${err.stack}`);
+    throw err;
   }
 }
 
 async function writeTechniqueToCSV({ fileName, jsonData }: { fileName: string; jsonData: InMiterTechnique[] }) {
   try {
-    const jsonArr = jsonData.filter((item) => item.type === MITER_TYPE.TECHNIQUE);
+    const jsonArr = findDataObject(jsonData, MITER_TYPE.TECHNIQUE) as InMiterTechnique[];
     const tableColumn = jsonArr.map(mapTechniqueTableColumn) as any;
     await writeDataToCSVFile({ fileName, objectArray: tableColumn });
     console.log('\n ****************Successfull created:::', fileName);
+    return jsonArr;
   } catch (err: any) {
-    console.log(`writeTechniqueToCSV: ${err.toString()}`);
+    console.log(`writeTechniqueToCSV: ${err.stack}`);
+    throw err;
   }
 }
 
-async function writeTechniqueToTacticCSV({ fileName, jsonData }: { fileName: string; jsonData: InMiterTechnique[] }) {
+async function writeTechniqueToTacticCSV({
+  fileName,
+  teatics,
+  techniques,
+}: {
+  fileName: string;
+  teatics: InMiterTactics[];
+  techniques: InMiterTechnique[];
+}) {
   try {
-    const jsonArr = jsonData.filter((item) => item.type === MITER_TYPE.TECHNIQUE);
-    filterJSONObjects[MITER_TYPE.TECHNIQUE] = jsonArr;
-    const tableColumn = jsonArr.map(mapTechniqueTableColumn) as any;
-    await writeDataToCSVFile({ fileName, objectArray: tableColumn });
+    const techniqueToTactic: Array<{ TTId: string; TacticId: string; TechniqueId: string }> = [];
+    const missingEntry = [] as any[];
+    let tectic: any = {};
+    teatics.forEach((teatic) => {
+      tectic[teatic.x_mitre_shortname] = teatic;
+    });
+    techniques.forEach((technique, index) => {
+      if (technique?.kill_chain_phases) {
+        technique?.kill_chain_phases?.forEach((value) => {
+          let tempTechnique = tectic[value.phase_name] as {};
+          // console.log(`value:::`, value);
+          // console.log(`tempTechnique:::`, tempTechnique);
+          if (true) {
+            if (tempTechnique && technique.x_mitre_is_subtechnique === false) {
+              // @ts-ignore
+              techniqueToTactic.push({ TTId: index, TacticId: tempTechnique.id, TechniqueId: technique.id });
+            }
+          }
+        });
+      } else {
+        missingEntry.push(technique);
+      }
+    });
+
+    // const tableColumn = jsonArr.map(mapTechniqueTableColumn) as any;
+    await writeDataToCSVFile({ fileName, objectArray: techniqueToTactic });
+    if (missingEntry.length) {
+      await writeDataToCSVFile({ fileName: filePath.TecToTactic_missing_records, objectArray: missingEntry });
+    }
     console.log('\n ****************Successfull created:::', fileName);
   } catch (err: any) {
-    console.log(`writeTechniqueToCSV: ${err.toString()}`);
+    console.log(`writeTechniqueToCSV: ${err.stack}`);
+    throw err;
   }
 }
 
 function mapMatrixTableColumn(item: InMiterMatrix): InTableMatrixColumn {
   return {
-    id: item.id,
-    name: item.name,
-    description: item.description,
-    type: item.type,
-    modified: item.modified,
-    created: item.created,
-    spec_version: item.spec_version,
+    id: String(item.id),
+    name: String(item.name),
+    description: String(item.description),
+    type: String(item.type),
+    modified: String(item.modified),
+    created: String(item.created),
+    spec_version: String(item.spec_version),
   };
 }
 
 let mapTacticTableColumn = (item: InMiterTactics): InTableTacticColumn => {
   return {
-    id: item.id,
-    name: item.name,
-    description: item.description,
-    type: item.type,
-    modified: item.modified,
-    created: item.created,
-    spec_version: item.spec_version,
+    id: String(item.id),
+    name: String(item.name),
+    description: String(item.description),
+    type: String(item.type),
+    modified: String(item.modified),
+    created: String(item.created),
+    spec_version: String(item.spec_version),
   };
 };
 
 let mapTechniqueTableColumn = (item: InMiterTechnique): InTableTechniqueColumn => {
   return {
-    type: item.type,
-    name: item.name,
-    x_mitre_version: item.x_mitre_version,
-    modified: item.modified,
-    created: item.created,
-    id: item.id,
-    description: item.description,
-    x_mitre_detection: item.x_mitre_detection,
-    created_by_ref: item.created_by_ref,
-    spec_version: item.spec_version,
-    x_mitre_attack_spec_version: item.x_mitre_attack_spec_version,
-    x_mitre_modified_by_ref: item.x_mitre_modified_by_ref,
-    x_mitre_is_subtechnique: item.x_mitre_is_subtechnique,
+    type: String(item.type),
+    name: String(item.name),
+    x_mitre_version: String(item.x_mitre_version),
+    modified: String(item.modified),
+    created: String(item.created),
+    id: String(item.id),
+    description: String(item.description),
+    x_mitre_detection: String(item.x_mitre_detection),
+    created_by_ref: String(item.created_by_ref),
+    spec_version: String(item.spec_version),
+    x_mitre_attack_spec_version: String(item.x_mitre_attack_spec_version),
+    x_mitre_modified_by_ref: String(item.x_mitre_modified_by_ref),
+    x_mitre_is_subtechnique: Boolean(item.x_mitre_is_subtechnique),
+    x_mitre_deprecated: Boolean(item.x_mitre_deprecated),
   };
 };

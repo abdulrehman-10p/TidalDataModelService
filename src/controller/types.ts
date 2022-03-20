@@ -5,6 +5,7 @@ export interface InMatrix {
   objects: Array<InJSONDataType>;
 }
 export type InJSONDataType = InMiterTactics | InMiterMatrix | InMiterTechnique;
+export type InJSONDataTypes<T> = Array<T>;
 
 export interface InMiterMatrix {
   object_marking_refs: string[];
@@ -54,7 +55,7 @@ export interface InMiterTechnique {
   x_mitre_is_subtechnique: boolean;
   id: string;
   description: string;
-  kill_chain_phases: KillChainPhase[];
+  kill_chain_phases: Array<KillChainPhase>;
   x_mitre_detection: string;
   created_by_ref: string;
   external_references: ExternalReference[];
@@ -62,6 +63,7 @@ export interface InMiterTechnique {
   x_mitre_attack_spec_version: string;
   x_mitre_domains: string[];
   x_mitre_modified_by_ref: string;
+  x_mitre_deprecated?: boolean;
 }
 
 export interface InTableMatrixColumn {
@@ -97,6 +99,7 @@ export interface InTableTechniqueColumn {
   spec_version: string;
   x_mitre_attack_spec_version: string;
   x_mitre_modified_by_ref: string;
+  x_mitre_deprecated: boolean;
   x_mitre_is_subtechnique: boolean;
 }
 

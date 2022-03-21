@@ -1,4 +1,4 @@
-TTId,TacticId,TechniqueId
+t_t_id,tactic_id,TechniqueId
 3,x-mitre-tactic--5e29b093-294e-49e9-a803-dab3d73b77dd,attack-pattern--67720091-eee3-4d2d-ae16-8264567f6f5b
 3,x-mitre-tactic--78b23412-0651-46d7-a540-170a1ce8bd5a,attack-pattern--67720091-eee3-4d2d-ae16-8264567f6f5b
 4,x-mitre-tactic--78b23412-0651-46d7-a540-170a1ce8bd5a,attack-pattern--dcaa092b-7de9-4a21-977f-7fcb77e89c48
